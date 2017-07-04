@@ -34,19 +34,3 @@ prefixes:     # User specifies this once per team/project
 IRIGeneration:
   prefix: PO
   type: uuid
-
-defaultPatterns:
-  - url: 'https://raw.githubusercontent.com/Planteome/plant-environment-ontology/master/patterns/eo.yaml'
-    title: 'Exposure Ontology'
-    type: 'yaml'
-
-defaultXSVs:
-  - url: 'https://raw.githubusercontent.com/Planteome/plant-environment-ontology/master/patterns/exposure-chebi.csv'
-    title: 'Exposure: CHEBI'
-    type: 'csv'
-  - url: 'https://raw.githubusercontent.com/Planteome/plant-environment-ontology/master/patterns/exposure-envo.csv'
-    title: 'Exposure: ENVO'
-    type: 'csv'
-  - url: 'https://raw.githubusercontent.com/Planteome/plant-environment-ontology/master/patterns/exposure-ncbitaxon.csv'
-    title: 'Exposure: NCBITaxon'
-    type: 'csv'

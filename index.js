@@ -2,46 +2,17 @@
 
 "use strict";
 
+const localMode = true;
 const path = require('path');
 var chalk       = require('chalk');
 var clear       = require('clear');
-var CLI         = require('clui');
 var figlet      = require('figlet');
-var inquirer    = require('inquirer');
-var Preferences = require('preferences');
-var Spinner     = CLI.Spinner;
 var GitHubApi   = require('github');
 var _           = require('lodash');
-var git         = require('simple-git')();
-var touch       = require('touch');
+var git         = require('simple-git');  // https://github.com/steveukx/git-js
 var fs          = require('fs-extra');
 var minimist    = require('minimist');
-
-
-
-// function template(strings, ...keys) {
-//   return (function(...values) {
-//     var dict = values[values.length - 1] || {};
-//     var result = [strings[0]];
-//     keys.forEach(function(key, i) {
-//       var value = Number.isInteger(key) ? values[key] : dict[key];
-//       result.push(value, strings[i + 1]);
-//     });
-//     return result.join('');
-//   });
-// }
-
-// var t1Closure = template`${0}${1}${0}!`;
-// console.log('1:', t1Closure('Y', 'A'));  // "YAY!"
-// var t2Closure = template`${0} ${'foo'}!`;
-// console.log('2:', t2Closure('Hello', {foo: 'World'}));  // "Hello World!"
-
-// const t3TemplateStr = "`${0} ${'foo'}!`";
-// var t3Closure = template;
-// console.log('2:', t2Closure('Hello', {foo: 'World'}));  // "Hello World!"
-
-// process.exit();
-
+const { execSync } = require('child_process');
 
 
 function usage() {
@@ -77,10 +48,10 @@ function main() {
 
   console.log('argv', argv);
 
+  let docsTemplate = 'docsTemplate/';
   let siteRoot = null;
   let title = null;
   let baseURL = null;
-  let symlinkFilename = null;
   let error = false;
   let help = false;
 
@@ -139,29 +110,28 @@ function main() {
 
   let logoFile = null;
 
+  const siteBasename = path.basename(siteRoot);
+  console.log('siteBasename', siteBasename);
+
   const indexFile = path.join(configurationsDir, 'index.json');
+  var indexJSON;
   if (!fs.existsSync(indexFile)) {
     console.log(chalk.yellow('index.json will be created:', indexFile));
 
-    const siteElements = siteRoot.split('/');
-    const lastElement = siteElements[siteElements.length - 2];
-    console.log('siteElements', siteElements);
-    console.log('lastElement', lastElement);
 
     logoFile = 'INCA.png';
-    title = lastElement;
-    baseURL = '/' + lastElement + '/';
-    symlinkFilename = path.join(siteDir, lastElement);
+    title = argv.title || siteBasename;
+    baseURL = '/' + siteBasename + '/';
 
-    const indexJSON = {
+    indexJSON = {
       "configNames":
         [
         ],
       "logoImage": logoFile,
       "baseURL": baseURL,
-      "title": lastElement
+      "title": title
     };
-    const content = JSON.stringify(indexJSON);
+    const content = JSON.stringify(indexJSON, null, 2);
 
     fs.writeFileSync(indexFile, content, 'utf8');
 
@@ -176,7 +146,7 @@ function main() {
   else {
     console.log(chalk.green('index.json exists:', indexFile));
     const content = fs.readFileSync(indexFile, 'utf8');
-    const indexJSON = JSON.parse(content);
+    indexJSON = JSON.parse(content);
     console.log('indexJSON:', indexJSON);
     logoFile = indexJSON.logoImage;
     title = indexJSON.title;
@@ -188,9 +158,9 @@ function main() {
   if (!fs.existsSync(defaultLogoFile)) {
     console.log(chalk.yellow('Default logo file will be copied:', defaultLogoFile));
 
-    // Sync:
+    const logoTemplate = path.join(docsTemplate, 'INCA.png');
     try {
-      fs.copySync('docsTemplate/INCA.png', defaultLogoFile);
+      fs.copySync(logoTemplate, defaultLogoFile);
       console.log(chalk.green('Default logo file copied:', defaultLogoFile));
     }
     catch (err) {
@@ -239,14 +209,216 @@ function main() {
     console.log(chalk.green('index.html exists:', indexHTMLFile));
   }
 
-  if (!fs.existsSync(symlinkFilename)) {
-    console.log(chalk.yellow('Symlink will be generated:', symlinkFilename));
-    // Make a symlink so that local debugging is easier
-    console.log('symlink:', symlinkFilename);
-    fs.symlinkSync('.', symlinkFilename);
+  if (localMode) {
+    let symlinkFilename = path.join(siteDir, siteBasename);
+    if (!fs.existsSync(symlinkFilename)) {
+      console.log(chalk.yellow('Symlink will be generated:', symlinkFilename));
+      // Make a symlink so that local debugging is easier
+      console.log('symlink:', symlinkFilename);
+      fs.symlinkSync('.', symlinkFilename);
+    }
+    else {
+      console.log(chalk.green('Symlink exists:', symlinkFilename));
+    }
   }
-  else {
-    console.log(chalk.green('Symlink exists:', symlinkFilename));
+
+  if (argv.source) {
+    const sources = (typeof argv.source === 'string') ? [argv.source] : argv.source;
+
+    console.log('');
+    console.log('');
+    console.log(chalk.green('Generate configurations from sources'));
+
+    var configNames = [];
+
+    sources.forEach(function(source) {
+      console.log(chalk.green('Source:', source));
+
+      if (!directoryExists(source)) {
+        console.log(chalk.red('...Source does not exist:', source));
+        process.exit();
+      }
+
+      const sourceGitDir = path.join(source, '.git');
+      if (!directoryExists(sourceGitDir)) {
+        console.log(chalk.red('...Source .git directory does not exist:', sourceGitDir));
+        process.exit();
+      }
+
+      const sourceGitRemoteURL = execSync(
+        'git ls-remote --get-url',
+        {
+          cwd: source,
+          encoding:'utf8'
+        }).trim();
+      console.log('...### sourceGitRemoteURL', sourceGitRemoteURL);
+      const rawPrefix = sourceGitRemoteURL
+                        .replace('git@github.com:', 'https://raw.githubusercontent.com/')
+                        .replace('https://github.com/', 'https://raw.githubusercontent.com/')
+                        .replace(/\.git$/, '/master/');
+      console.log('...### rawPrefix', rawPrefix);
+
+      // console.log('...### BEFORE');
+      // const sourceGit = git(source);  // Use source as working dir
+      // sourceGit.listRemote(['--get-url'], function(err, data) {
+      //   if (!err) {
+      //     console.log('...### Remote url for repository at ' + __dirname + ':', data);
+      //   }
+      // });
+      // console.log('...### AFTER');
+
+      // const sourceGitConfig = path.join(sourceGitDir, 'config');
+      // if (!fs.existsSync(sourceGitConfig)) {
+      //   console.log(chalk.red('...No .git/config found:', sourceGitConfig));
+      //   process.exit();
+      // }
+
+      // const sourceGitConfigContent = fs.readFileSync(sourceGitConfig, 'utf8');
+      // console.log('...####sourceGitConfig', sourceGitConfigContent);
+
+      const patternsPath1 = 'src/patterns';
+      const patternsPath2 = 'patterns';
+      const patternsFullPath1 = path.join(source, patternsPath1);
+      const patternsFullPath2 = path.join(source, patternsPath2);
+      let patternsPath = null;
+      let patternsFullPath = null;
+      if (!directoryExists(patternsFullPath1)) {
+        if (!directoryExists(patternsFullPath2)) {
+          console.log(chalk.red('...Ontology patterns directory does not exist:', patternsFullPath1, patternsFullPath2));
+          process.exit();
+        }
+
+        patternsPath = patternsPath2;
+        patternsFullPath = patternsFullPath2;
+      }
+      else {
+        patternsPath = patternsPath1;
+        patternsFullPath = patternsFullPath1;
+      }
+
+      // Deal with new vs old-style xsv dirs
+      const xsvPath1 = 'src/ontology/modules';
+      const xsvPath2 = 'patterns';
+      const xsvFullPath1 = path.join(source, xsvPath1);
+      const xsvFullPath2 = path.join(source, xsvPath2);
+      let xsvPath = null;
+      let xsvFullPath = null;
+      if (!directoryExists(xsvFullPath1)) {
+        if (!directoryExists(xsvFullPath2)) {
+          console.log(chalk.red('...XSV directory does not exist:', xsvFullPath1, xsvFullPath2));
+          process.exit();
+        }
+        xsvPath = xsvPath2;
+        xsvFullPath = xsvFullPath2;
+      }
+      else {
+        xsvPath = xsvPath1;
+        xsvFullPath = xsvFullPath1;
+      }
+
+
+
+      let patternsContents = fs.readdirSync(patternsFullPath, 'utf8');
+      let patternFiles = [];
+      for (let patternFile of patternsContents) {
+        let extension = path.extname(patternFile);
+        if (extension !== '.yaml') {
+          // console.log(chalk.yellow('...Skipping non-YAML file in pattern directory', patternFile));
+        }
+        else {
+          // const prefix = 'https://raw.githubusercontent.com/EnvironmentOntology/environmental-exposure-ontology/master/src/patterns/';
+          patternFiles.push(patternFile);
+        }
+      }
+      console.log(chalk.green('...patternFiles', patternFiles));
+
+
+      let xsvContents = fs.readdirSync(xsvFullPath, 'utf8');
+      let xsvFiles = [];
+      for (let xsvFile of xsvContents) {
+        let extension = path.extname(xsvFile);
+        if (extension !== '.csv') {
+          // console.log(chalk.yellow('...Skipping non-XSV file in ontology directory', xsvFile));
+        }
+        else {
+          xsvFiles.push(xsvFile);
+        }
+      }
+      console.log(chalk.green('...xsvFiles', xsvFiles));
+
+      //
+      // Create the named directory and config.yaml for this configuration
+      //
+      const configName = path.basename(source);
+      console.log(chalk.yellow('...configName', configName));
+      configNames.push(configName);
+
+      const configDir = path.join(configurationsDir, configName);
+      if (!directoryExists(configDir)) {
+        console.log(chalk.yellow('...Configuration directory will be created:', configDir));
+        fs.mkdirSync(configDir);
+        if (!directoryExists(configDir)) {
+          console.log(chalk.red('...Error creating Configuration directory:', configDir));
+          process.exit();
+        }
+      }
+      else {
+        console.log(chalk.green('...Configuration directory exists:', configDir));
+      }
+
+      const configFile = path.join(configDir, 'config.yaml');
+      if (!fs.existsSync(configFile)) {
+        console.log(chalk.yellow('...config.yaml will be generated:', configFile));
+
+        const configTemplate = path.join(docsTemplate, 'configurations/config.yaml');
+        try {
+          fs.copySync(configTemplate, configFile);
+          console.log(chalk.green('Default config.yaml copied:', configFile));
+        }
+        catch (err) {
+          console.log(chalk.red('Error copying default config.yaml:', configFile), err);
+          process.exit();
+        }
+      }
+      else {
+        console.log(chalk.green('...config.yaml exists:', configFile));
+      }
+
+
+      const menuFile = path.join(configDir, 'menu.yaml');
+      if (!fs.existsSync(menuFile)) {
+        console.log(chalk.yellow('...menu.yaml will be generated:', menuFile));
+
+        let menuContents = '';
+
+        menuContents += 'defaultPatterns:\n';
+        patternFiles.forEach(function(patternFile) {
+          menuContents += '  - url: ' + rawPrefix + path.join(patternsPath, patternFile) + '\n';
+          menuContents += '    title: ' + patternFile + '\n';
+          //deleteme menuContents += '    type: yaml\n';
+        });
+
+        menuContents += '\n';
+        menuContents += 'defaultXSVs:\n';
+        xsvFiles.forEach(function(xsvFile) {
+          menuContents += '  - url: ' + rawPrefix + path.join(xsvPath, xsvFile) + '\n';
+          menuContents += '    title: ' + xsvFile + '\n';
+          //deleteme menuContents += '    type: xsv\n';
+        });
+
+        menuContents += '\n';
+
+        fs.writeFileSync(menuFile, menuContents, 'utf8');
+      }
+      else {
+        console.log(chalk.green('...menu.yaml exists:', menuFile));
+      }
+    });
+
+    // Update index.json with the configuration names
+
+    indexJSON.configNames = configNames;
+    fs.writeFileSync(indexFile, JSON.stringify(indexJSON, null, 2), 'utf8');
   }
 }
 

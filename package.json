@@ -4,8 +4,10 @@
   "description": "Manage table-editor configurations and sites",
   "main": "index.js",
   "scripts": {
-    "clean": "rm -rf ../exposure-inca-form/docs/",
-    "test": "node index.js --site ../exposure-inca-form/ --title 'Exposure Ontology'"
+    "cleanexposure": "rm -rf ../exposure-inca-form/docs/",
+    "exposure": "node index.js --site ../exposure-inca-form/ --title 'Exposure Ontology' --source ../environmental-exposure-ontology/",
+    "cleanplanteome": "rm -rf ../planteome-inca-form/docs/",
+    "planteome": "node index.js --site ../planteome-inca-form/ --title 'Plant Ontology' --source ../plant-environment-ontology/ --source ../plant-trait-ontology/"
   },
   "keywords": [
     "tsv",
@@ -30,7 +32,7 @@
     "lodash": "^4.13.1",
     "minimist": "^1.2.0",
     "preferences": "^0.2.1",
-    "simple-git": "^1.40.0",
+    "simple-git": "^1.73.0",
     "touch": "^1.0.0"
   }
 }
