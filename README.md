@@ -2,18 +2,22 @@
 
 Inspired by https://www.sitepoint.com/javascript-command-line-interface-cli-node-js
 
+
 ## Requirements
 
 * [Node.js](http://nodejs.org/)
+
 
 ## Installation
 
 `npm install -g tetool`
 
+
 ## Usage
 
 	tetool --help
-	tetool --target <site_dir>
+    tetool --site ../exposure-inca-form/ --title 'Exposure Ontology' --source ../environmental-exposure-ontology/
+
 
 ## Examples
 
@@ -26,6 +30,8 @@ This example assumes that a single ontology repo will be used. For this example,
 - Use `tetool` to create a site directory:
 	tetool --site ./
 - This will create `docs/`, `docs/configurations/`, and `docs/index.html`
+- Use `tetool` to augment the site directory with generated configurations:
+	tetool --site ./
 
 
 ## Developing `tetool`
@@ -36,6 +42,8 @@ This example assumes that a single ontology repo will be used. For this example,
 - Invent!
 - npm install -g # Install tetool globally, but from the working directory
 
-## License
 
-TBD
+### Version History
+
+0.0.1 - Initial version of tetool installed into NPM
+

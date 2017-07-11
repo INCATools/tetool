@@ -1,19 +1,23 @@
 {
   "name": "tetool",
-  "version": "1.0.0",
-  "description": "Manage table-editor configurations and sites",
+  "version": "0.0.1",
+  "description": "Manage inca-form configurations and sites",
   "main": "index.js",
   "scripts": {
     "cleanexposure": "rm -rf ../exposure-inca-form/docs/",
     "exposure": "node index.js --site ../exposure-inca-form/ --title 'Exposure Ontology' --source ../environmental-exposure-ontology/",
     "cleanplanteome": "rm -rf ../planteome-inca-form/docs/",
-    "planteome": "node index.js --site ../planteome-inca-form/ --title 'Plant Ontology' --source ../plant-environment-ontology/ --source ../plant-trait-ontology/"
+    "planteome": "node index.js --site ../planteome-inca-form/ --title 'Planteome Plant Ontology' --source ../plant-environment-ontology/ --source ../plant-trait-ontology/@clean-dp",
+    "planteome0": "node index.js --site ../planteome-inca-form/ --title 'Planteome Plant Ontology'",
+    "planteome1": "node index.js --site ../planteome-inca-form/ --source ../plant-environment-ontology/",
+    "planteome2": "node index.js --site ../planteome-inca-form/ --source ../plant-trait-ontology/@clean-dp"
   },
   "keywords": [
     "tsv",
     "csv",
+    "xsv",
     "yaml",
-    "table-editor",
+    "inca-form",
     "CLI"
   ],
   "author": "Daniel Keith <dan@quantumclay.com>",
