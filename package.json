@@ -4,6 +4,8 @@
   "description": "Manage inca-form configurations and sites",
   "main": "index.js",
   "scripts": {
+    "cleango": "rm -rf ../go-inca-form/docs/",
+    "go": "node index.js --site ../go-inca-form/ --title 'Gene Ontology' --source ../go-ontology/",
     "cleanexposure": "rm -rf ../exposure-inca-form/docs/",
     "exposure": "node index.js --site ../exposure-inca-form/ --title 'Exposure Ontology' --source ../environmental-exposure-ontology/",
     "cleanplanteome": "rm -rf ../planteome-inca-form/docs/",
