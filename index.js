@@ -2,7 +2,7 @@
 
 "use strict";
 
-const localMode = true;
+const localMode = false;
 const path = require('path');
 var chalk       = require('chalk');
 var clear       = require('clear');
@@ -15,6 +15,7 @@ var minimist    = require('minimist');
 const { execSync } = require('child_process');
 
 
+
 function usage() {
   // clear();
   console.log(
@@ -25,6 +26,7 @@ function usage() {
   console.log('tetool --site    <siteDir>');
   console.log('       --title   <siteTitle>');
   console.log('       --source  <sourceDir>');
+  console.log('       --source  <sourceDir>@branch');
 }
 
 function directoryExists(filePath) {
@@ -46,9 +48,8 @@ function main() {
     )
   );
 
-  console.log('argv', argv);
-
-  let docsTemplate = 'docsTemplate/';
+  // console.log('###argv', argv);
+  let docsTemplate = path.resolve(__dirname, 'docsTemplate');
   let siteRoot = null;
   let title = null;
   let baseURL = null;
@@ -71,7 +72,7 @@ function main() {
   }
 
   console.log('siteRoot:', siteRoot);
-  let siteDir = path.join(siteRoot, 'docs/');
+  let siteDir = path.resolve(siteRoot, 'docs/');
 
   // ensure siteRoot exists
   if (!directoryExists(siteRoot)) {
@@ -109,8 +110,9 @@ function main() {
   }
 
   let logoFile = null;
+  let configNames = [];
 
-  const siteBasename = path.basename(siteRoot);
+  const siteBasename = path.basename(path.resolve(siteRoot));
   console.log('siteBasename', siteBasename);
 
   const indexFile = path.join(configurationsDir, 'index.json');
@@ -124,9 +126,7 @@ function main() {
     baseURL = '/' + siteBasename + '/';
 
     indexJSON = {
-      "configNames":
-        [
-        ],
+      "configNames": configNames,
       "logoImage": logoFile,
       "baseURL": baseURL,
       "title": title
@@ -149,6 +149,7 @@ function main() {
     indexJSON = JSON.parse(content);
     console.log('indexJSON:', indexJSON);
     logoFile = indexJSON.logoImage;
+    configNames = indexJSON.configNames;
     title = indexJSON.title;
   }
 
@@ -188,7 +189,7 @@ function main() {
   if (!fs.existsSync(indexHTMLFile)) {
     console.log(chalk.yellow('Default index.html file will be generated:', indexHTMLFile));
 
-    const templateIndexHTMLFile = 'docsTemplate/index.html';
+    const templateIndexHTMLFile = path.join(docsTemplate, 'index.html');
     const template = fs.readFileSync(templateIndexHTMLFile, 'utf8');
 
     console.log(title, baseURL);
@@ -229,11 +230,12 @@ function main() {
     console.log('');
     console.log(chalk.green('Generate configurations from sources'));
 
-    var configNames = [];
+    sources.forEach(function(sourceAndBranch) {
+      console.log(chalk.green('SourceAndBranch:', sourceAndBranch));
 
-    sources.forEach(function(source) {
-      console.log(chalk.green('Source:', source));
-
+      let sourceAndBranchSplit = sourceAndBranch.split(/@/);
+      let source = sourceAndBranchSplit[0];
+      let branch = sourceAndBranchSplit.length === 1 ? 'master' : sourceAndBranchSplit[1];
       if (!directoryExists(source)) {
         console.log(chalk.red('...Source does not exist:', source));
         process.exit();
@@ -255,7 +257,7 @@ function main() {
       const rawPrefix = sourceGitRemoteURL
                         .replace('git@github.com:', 'https://raw.githubusercontent.com/')
                         .replace('https://github.com/', 'https://raw.githubusercontent.com/')
-                        .replace(/\.git$/, '/master/');
+                        .replace(/\.git$/, '/' + branch + '/');
       console.log('...### rawPrefix', rawPrefix);
 
       // console.log('...### BEFORE');
@@ -323,7 +325,7 @@ function main() {
       for (let patternFile of patternsContents) {
         let extension = path.extname(patternFile);
         if (extension !== '.yaml') {
-          // console.log(chalk.yellow('...Skipping non-YAML file in pattern directory', patternFile));
+          console.log(chalk.yellow('...Skipping non-YAML file in pattern directory', patternFile));
         }
         else {
           // const prefix = 'https://raw.githubusercontent.com/EnvironmentOntology/environmental-exposure-ontology/master/src/patterns/';
@@ -337,10 +339,27 @@ function main() {
       let xsvFiles = [];
       for (let xsvFile of xsvContents) {
         let extension = path.extname(xsvFile);
-        if (extension !== '.csv') {
-          // console.log(chalk.yellow('...Skipping non-XSV file in ontology directory', xsvFile));
+        if (extension === '') {
+          console.log(chalk.yellow('...Trying directory in ontology directory', xsvFile, xsvFullPath));
+          let subFileCSV = path.resolve(xsvFullPath, xsvFile, xsvFile + '.csv');
+          let subFileTSV = path.resolve(xsvFullPath, xsvFile, xsvFile + '.tsv');
+          if (fs.existsSync(subFileCSV)) {
+            console.log(chalk.yellow('...... resolvedTo', subFileCSV));
+            xsvFiles.push(xsvFile + '/' + xsvFile + '.csv');
+          }
+          else if (fs.existsSync(subFileTSV)) {
+            console.log(chalk.yellow('...... resolvedTo', subFileTSV));
+            xsvFiles.push(xsvFile + '/' + xsvFile + '.tsv');
+          }
+          else {
+            console.log(chalk.yellow('...Skipping non-XSV file in ontology sub-directory', xsvFile, xsvFullPath));
+          }
+        }
+        else if ((extension !== '.tsv') && (extension !== '.csv')) {
+          console.log(chalk.yellow('...Skipping non-XSV file in ontology directory', xsvFile, xsvFullPath));
         }
         else {
+          console.log(chalk.yellow('...Including XSV file in ontology directory', xsvFile, xsvFullPath));
           xsvFiles.push(xsvFile);
         }
       }
@@ -351,7 +370,10 @@ function main() {
       //
       const configName = path.basename(source);
       console.log(chalk.yellow('...configName', configName));
-      configNames.push(configName);
+
+      if (configNames.indexOf(configName) < 0) {
+        configNames.push(configName);
+      }
 
       const configDir = path.join(configurationsDir, configName);
       if (!directoryExists(configDir)) {
@@ -402,8 +424,14 @@ function main() {
         menuContents += 'defaultXSVs:\n';
         xsvFiles.forEach(function(xsvFile) {
           menuContents += '  - url: ' + rawPrefix + path.join(xsvPath, xsvFile) + '\n';
-          menuContents += '    title: ' + xsvFile + '\n';
-          //deleteme menuContents += '    type: xsv\n';
+          let xsvFileTitle = xsvFile.split('/'); // I'm sorry for this hack. Make planteome conform!!!
+          if (xsvFileTitle.length > 1) {
+            xsvFileTitle = xsvFileTitle[1];
+          }
+          else {
+            xsvFileTitle = xsvFileTitle[0];
+          }
+          menuContents += '    title: ' + xsvFileTitle + '\n';
         });
 
         menuContents += '\n';
