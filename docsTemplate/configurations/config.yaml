@@ -34,3 +34,10 @@ prefixes:     # User specifies this once per team/project
 IRIGeneration:
   prefix: PO
   type: uuid
+
+globalAutocomplete:   # Mostly for HPO testing without a separate YAML
+  'Thing':
+    label: 'Thing'
+    root_class: ''
+    lookup_type: 'ols'
+

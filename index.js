@@ -2,7 +2,6 @@
 
 "use strict";
 
-const localMode = false;
 const path = require('path');
 var chalk       = require('chalk');
 var clear       = require('clear');
@@ -27,6 +26,7 @@ function usage() {
   console.log('       --title   <siteTitle>');
   console.log('       --source  <sourceDir>');
   console.log('       --source  <sourceDir>@branch');
+  console.log('       --local');
 }
 
 function directoryExists(filePath) {
@@ -55,6 +55,12 @@ function main() {
   let baseURL = null;
   let error = false;
   let help = false;
+  const localMode = !!argv.local;
+  let tejs =
+`
+    <script type="text/javascript" src="https://incatools.github.io/table-editor/vendor.js"></script>
+    <script type="text/javascript" src="https://incatools.github.io/table-editor/bundle.js"></script>
+`;
 
   if (argv.help) {
     help = true;
@@ -114,16 +120,21 @@ function main() {
 
   const siteBasename = path.basename(path.resolve(siteRoot));
   console.log('siteBasename', siteBasename);
+  logoFile = 'INCA.png';
+  title = argv.title || siteBasename;
+  baseURL = '/' + siteBasename + '/';
+  if (localMode) {
+    baseURL = '/';
+    tejs =
+`
+  <script type="text/javascript" src="http://127.0.0.1:8085/bundle.js"></script>
+`;
+  }
 
   const indexFile = path.join(configurationsDir, 'index.json');
   var indexJSON;
   if (!fs.existsSync(indexFile)) {
     console.log(chalk.yellow('index.json will be created:', indexFile));
-
-
-    logoFile = 'INCA.png';
-    title = argv.title || siteBasename;
-    baseURL = '/' + siteBasename + '/';
 
     indexJSON = {
       "configNames": configNames,
@@ -195,8 +206,8 @@ function main() {
     console.log(title, baseURL);
     var titleAdded = template.replace(/\$\{title\}/g, title);
     var baseAdded = titleAdded.replace(/\$\{baseURL\}/g, baseURL);
-
-    fs.writeFileSync(indexHTMLFile, baseAdded, 'utf8');
+    var tejsAdded = baseAdded.replace(/\$\{tableEditorJSInclude\}/g, tejs);
+    fs.writeFileSync(indexHTMLFile, tejsAdded, 'utf8');
 
     if (!fs.existsSync(indexHTMLFile)) {
       console.log(chalk.red('Error writing index.html file:', indexHTMLFile));
@@ -254,12 +265,15 @@ function main() {
           encoding:'utf8'
         }).trim();
       console.log('...### sourceGitRemoteURL', sourceGitRemoteURL);
-      const rawPrefix = sourceGitRemoteURL
+      let rawPrefix = sourceGitRemoteURL
                         .replace('git@github.com:', 'https://raw.githubusercontent.com/')
                         .replace('https://github.com/', 'https://raw.githubusercontent.com/')
                         .replace(/\.git$/, '/' + branch + '/');
       console.log('...### rawPrefix', rawPrefix);
 
+      if (localMode) {
+        rawPrefix = 'http://127.0.0.1:8888/';
+      }
       // console.log('...### BEFORE');
       // const sourceGit = git(source);  // Use source as working dir
       // sourceGit.listRemote(['--get-url'], function(err, data) {
@@ -280,18 +294,26 @@ function main() {
 
       const patternsPath1 = 'src/patterns';
       const patternsPath2 = 'patterns';
+      const patternsPath3 = 'src/ontology/patterns';
       const patternsFullPath1 = path.join(source, patternsPath1);
       const patternsFullPath2 = path.join(source, patternsPath2);
+      const patternsFullPath3 = path.join(source, patternsPath3);
       let patternsPath = null;
       let patternsFullPath = null;
       if (!directoryExists(patternsFullPath1)) {
         if (!directoryExists(patternsFullPath2)) {
-          console.log(chalk.red('...Ontology patterns directory does not exist:', patternsFullPath1, patternsFullPath2));
-          process.exit();
-        }
+          if (!directoryExists(patternsFullPath3)) {
+            console.log(chalk.red('...Ontology patterns directory does not exist:', patternsFullPath1, patternsFullPath2, patternsFullPath3));
+            process.exit();
+          }
 
-        patternsPath = patternsPath2;
-        patternsFullPath = patternsFullPath2;
+          patternsPath = patternsPath3;
+          patternsFullPath = patternsFullPath3;
+        }
+        else {
+          patternsPath = patternsPath2;
+          patternsFullPath = patternsFullPath2;
+        }
       }
       else {
         patternsPath = patternsPath1;
