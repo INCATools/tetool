@@ -1,6 +1,6 @@
 {
   "name": "tetool",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Manage inca-form configurations and sites",
   "main": "index.js",
   "scripts": {

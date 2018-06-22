@@ -22,10 +22,12 @@ function usage() {
       figlet.textSync('tetool help', { horizontalLayout: 'full' })
     )
   );
-  console.log('tetool --site    <siteDir>');
-  console.log('       --title   <siteTitle>');
-  console.log('       --source  <sourceDir>');
-  console.log('       --source  <sourceDir>@branch');
+  console.log('tetool --site        <siteDir>');
+  console.log('       --output      <outputDir> (./docs)');
+  console.log('       --title       <siteTitle>');
+  console.log('       --prebuilt    <prebuiltDir>');
+  console.log('       --source      <sourceDir>');
+  console.log('       --source      <sourceDir>@branch');
   console.log('       --local');
 }
 
@@ -62,6 +64,12 @@ function main() {
     <script type="text/javascript" src="https://incatools.github.io/table-editor/bundle.js"></script>
 `;
 
+  if (localMode) {
+    tejs =
+`
+    <script type="text/javascript" src="table-editor/bundle.js"></script>
+`;
+  }
   if (argv.help) {
     help = true;
   }
@@ -77,8 +85,11 @@ function main() {
     process.exit();
   }
 
-  console.log('siteRoot:', siteRoot);
-  let siteDir = path.resolve(siteRoot, 'docs/');
+  var outputPath = argv.output || 'docs/';
+
+  let siteDir = path.resolve(siteRoot, outputPath);
+  // console.log('siteDir', siteDir);
+  // process.exit();
 
   // ensure siteRoot exists
   if (!directoryExists(siteRoot)) {
@@ -90,7 +101,7 @@ function main() {
       console.log(chalk.yellow('Site will be created:', siteDir));
       fs.mkdirSync(siteDir);
       if (!directoryExists(siteDir)) {
-        console.log(chalk.red('Error creating docs/ directory:', siteDir));
+        console.log(chalk.red('Error creating output directory:', siteDir));
         process.exit();
       }
     }
@@ -125,10 +136,6 @@ function main() {
   baseURL = '/' + siteBasename + '/';
   if (localMode) {
     baseURL = '/';
-    tejs =
-`
-  <script type="text/javascript" src="http://127.0.0.1:8085/bundle.js"></script>
-`;
   }
 
   const indexFile = path.join(configurationsDir, 'index.json');
@@ -234,7 +241,60 @@ function main() {
     }
   }
 
-  if (argv.source) {
+
+  if (argv.prebuilt) {
+    const prebuilts = (typeof argv.prebuilt === 'string') ? [argv.prebuilt] : argv.prebuilt;
+    console.log('');
+    console.log('');
+    console.log(chalk.green('Install prebuilt configuration'));
+
+    prebuilts.forEach(function(prebuilt) {
+      console.log(chalk.green('prebuilt:', prebuilt));
+      let nameAndPathSplit = prebuilt.split(/:/);
+      let name = nameAndPathSplit[0];
+      let prebuiltPath = nameAndPathSplit.length === 1 ? './' : nameAndPathSplit[1];
+      console.log(chalk.green('name:', name));
+      console.log(chalk.green('prebuiltPath:', prebuiltPath));
+
+      if (!directoryExists(prebuiltPath)) {
+        console.log(chalk.red('...Prebuilt path does not exist:', prebuiltPath));
+        process.exit();
+      }
+      else {
+        var configName = name;
+        console.log(chalk.yellow('...configName', configName));
+
+        console.log('configurationsDir', configurationsDir);
+        console.log('configName', configName);
+        const configDir = path.join(configurationsDir, configName);
+        if (!directoryExists(configDir)) {
+          console.log(chalk.yellow('...Configuration directory will be created:', configDir));
+          fs.mkdirSync(configDir);
+          if (!directoryExists(configDir)) {
+            console.log(chalk.red('...Error creating Configuration directory:', configDir));
+            process.exit();
+          }
+        }
+        else {
+          console.log(chalk.green('...Configuration directory exists:', configDir));
+        }
+
+        console.log(chalk.yellow('cp -r', prebuiltPath, configDir));
+        fs.copySync(prebuiltPath, configDir);
+
+        if (configNames.indexOf(configName) < 0) {
+          configNames.push(configName);
+        }
+      }
+    });
+
+    // Update index.json with the configuration names
+
+    indexJSON.configNames = configNames;
+    fs.writeFileSync(indexFile, JSON.stringify(indexJSON, null, 2), 'utf8');
+
+  }
+  else if (argv.source) {
     const sources = (typeof argv.source === 'string') ? [argv.source] : argv.source;
 
     console.log('');
@@ -272,7 +332,8 @@ function main() {
       console.log('...### rawPrefix', rawPrefix);
 
       if (localMode) {
-        rawPrefix = 'http://127.0.0.1:8888/';
+        // rawPrefix = 'http://127.0.0.1:8888/';
+        rawPrefix = '/';
       }
       // console.log('...### BEFORE');
       // const sourceGit = git(source);  // Use source as working dir

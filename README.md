@@ -82,5 +82,6 @@ Longer term, `tetool` should be fixed to support a broader and perhaps a more ge
 
 0.0.1 - Initial version of tetool installed into NPM
 0.0.2 - Adds --local option for ease of development. Adds 'Thing' as a global class available for autocomplete. Add 'src/ontology/patterns' as a possible location to discover pattern files. Add more documentation to README.
+0.0.3 - Adds support for 'prebuilt' configurations, which are simply copied into the output directory. Adds support for an explicit output directory instead of the default '/docs'.
 
 
